@@ -25,7 +25,7 @@ float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
 //lighting
-glm::vec3 lightPosition(1.0f, 0.7f, 2.0f);
+glm::vec3 lightPosition(1.0f, 0.7f, 1.5f);
 //represents the light(¡Ösun) location in world-space coordinates
 
 void user_input(GLFWwindow* window) {
@@ -153,6 +153,19 @@ int main() {
 		-0.5f,  0.5f,  0.5f,  0.0f, 0.0f,	0.0f,  1.0f,  0.0f,
 		-0.5f,  0.5f, -0.5f,  0.0f, 1.0f,	0.0f,  1.0f,  0.0f
 	};
+	// positions all containers
+	glm::vec3 cubePositions[] = {
+		glm::vec3(0.0f,  0.0f,  0.0f),
+		glm::vec3(2.0f,  5.0f, -15.0f),
+		glm::vec3(-1.5f, -2.2f, -2.5f),
+		glm::vec3(-3.8f, -2.0f, -12.3f),
+		glm::vec3(2.4f, -0.4f, -3.5f),
+		glm::vec3(-1.7f,  3.0f, -7.5f),
+		glm::vec3(1.3f, -2.0f, -2.5f),
+		glm::vec3(1.5f,  2.0f, -2.5f),
+		glm::vec3(1.5f,  0.2f, -1.5f),
+		glm::vec3(-1.3f,  1.0f, -1.5f)
+	};
 
 
 
@@ -198,7 +211,7 @@ int main() {
 
 
 	//load and create textures
-	unsigned int texture1, texture2, emission;
+	unsigned int texture1, texture2 , emission;
 	glGenTextures(1, &texture1);
 	glBindTexture(GL_TEXTURE_2D, texture1); // all upcoming GL_TEXTURE_2D operations now have effect on this texture object
 	// set the texture wrapping parameters
@@ -272,6 +285,18 @@ int main() {
 	myShader.setInt("texture2", 1);
 	myShader.setInt("emission", 2);
 	myShader.setVec3("lightPos", lightPosition);
+	myShader.setVec3("light.direction", -.2f, -.7f, -.3f);
+	//¦¦actually specify the direction of the light
+	
+	/* p.s)
+	* When defining position vectors as a vec4 it is important to set the w component to 1.0
+	* to translation and projections are properly applied.
+	* When defining a direction vector as a vec4(don't translate-since they just represent directions)
+	* it is important to define the w component to be 0.0
+	* 
+	* if(lightVector.w == 0.0) directional_light()
+	* else if(lightVector.w == 1.0) positional_light()
+	*/
 
 
 
@@ -305,37 +330,22 @@ int main() {
 		myShader.setVec3("viewPos", camera.Position);
 
 		//¡Úlight properties ---> (all light colors are set at full intensity)
-		myShader.setVec3("light.ambient", .5f, .5f, .5f);
+		myShader.setVec3("light.ambient", .5f, .5f, 1.0f);
 		myShader.setVec3("light.diffuse", 1.0f, 1.0f, 1.0f);
-		myShader.setVec3("light.specular", 0.0f, 1.0f, 1.0f);
+		myShader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
 
 		//¡Úmaterial properties
 		myShader.setVec3("material.ambient", .3f, .3f, .3f);
 		myShader.setVec3("material.diffuse", .8f, .8f, .8f);
-		myShader.setVec3("material.specular", 0.0f, 1.0f, 1.0f);
-		myShader.setFloat("material.shininess", 64.0f);
+		myShader.setVec3("material.specular", 1.0f, 1.0f, 1.0f);
+		myShader.setFloat("material.shininess", 32.0f);
 
 		//¡Úview/projection transformations
 		//pass projection matrix to shader(in this case it could change every frame)
 		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)4 / (float)3, .1f, 100.0f);
 		myShader.setMat4("projection", projection);
 
-		// create a frustum that defines the visible space
-		/*frustum : in clip space, viewing range will end up on the user's screen. .
-					anything out side the frustum will not end up and will become clipped*/
-					//projection = glm::perspective(glm::radians(40.0f), 6.0f / 8.0f, 0.1f, 100.0f); 
-					/*parametaer
-					1: fov(field of view) value == how large the viewspace is.
-					2: aspect ratio == viewport's width / viewport's height
-					3,4: distance between near plane and far plane (usually set near distance: 0.1, far distance: 100.0)
-						 All the vertices between the near and far plane and inside the frustum  will be rendered.
-					* The projection matrix not only maps a given frustum range to clip space,
-					* but also manipulates the w value of each vertex coordinate.
-					* Each component of the vertex coordinate is divided by its w component.
-					* The further away a vertex from the viewer, will receive smaller vertex coordinates.
-					*/
-
-					//camera/view transformation
+		//camera/view transformation
 		glm::mat4 view = camera.GetViewMatrix();
 		myShader.setMat4("view", view);
 
@@ -351,13 +361,23 @@ int main() {
 
 		//¡Úrender the cube
 		glBindVertexArray(cubeVAO);
-		glDrawArrays(GL_TRIANGLES, 0, 36);
+		for (unsigned int i = 0; i < 10; i++)
+		{
+			glm::mat4 model = glm::mat4(1.0f);
+			model = glm::translate(model, cubePositions[i]);
+			float spin = (float)glfwGetTime() * 80.0f + 5.0f + (i * 20.0f);
+			float angle = 20.0f * i;
+			if(!i%2) model = glm::rotate(model, glm::radians(spin), glm::vec3(1.0, (float)i / 10, 0.5f));
+			model = glm::rotate(model, glm::radians(spin), glm::vec3((float)i/10 * 2, 1.0, 0.3f));
+			myShader.setMat4("model", model);
+
+			glDrawArrays(GL_TRIANGLES, 0, 36);
+		}
 
 
 
 
-
-		//¡Údraw the lamp object
+		/*//¡Údraw the lamp object
 
 		//activate Lamp's Shader
 		lampShader.use();
@@ -371,13 +391,14 @@ int main() {
 		lampShader.setMat4("model", model);
 
 		glBindVertexArray(lightVAO);
-		glDrawArrays(GL_TRIANGLES, 0, 36);
+		glDrawArrays(GL_TRIANGLES, 0, 36);*/
 
 
 
 		//glfw : swap buffer and poll event (key pressed/release, mouse moved etc..)
 		glfwSwapBuffers(window);
 		glfwPollEvents();
+		
 	}
 
 
